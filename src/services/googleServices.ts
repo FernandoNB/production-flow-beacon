@@ -7,6 +7,8 @@
 // Helper to get configuration from localStorage
 const getConfig = () => {
   return {
+    dbType: localStorage.getItem('db_type') || 'google_sheets',
+    oauthToken: localStorage.getItem('google_oauth_token') || null,
     sheets: {
       apiKey: localStorage.getItem('sheets_api_key') || '',
       spreadsheetId: localStorage.getItem('sheets_spreadsheet_id') || '',
@@ -21,13 +23,29 @@ const getConfig = () => {
 // Check if Google Sheets is configured
 export const isSheetsConfigured = (): boolean => {
   const config = getConfig();
-  return !!(config.sheets.apiKey && config.sheets.spreadsheetId);
+  return !!(
+    (config.sheets.apiKey && config.sheets.spreadsheetId) || 
+    config.oauthToken
+  );
 };
 
 // Check if Google Drive is configured
 export const isDriveConfigured = (): boolean => {
   const config = getConfig();
-  return !!(config.drive.apiKey && config.drive.folderId);
+  return !!(
+    (config.drive.apiKey && config.drive.folderId) || 
+    config.oauthToken
+  );
+};
+
+// Check if authenticated with Google OAuth
+export const isGoogleAuthenticated = (): boolean => {
+  return !!localStorage.getItem('google_oauth_token');
+};
+
+// Check if using Supabase as database
+export const isUsingSupabase = (): boolean => {
+  return localStorage.getItem('db_type') === 'supabase';
 };
 
 // Sheet names for different data
@@ -53,9 +71,21 @@ export const fetchSheetData = async (sheetName: string): Promise<any[]> => {
   }
 
   try {
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${config.sheets.spreadsheetId}/values/${sheetName}?key=${config.sheets.apiKey}`
-    );
+    let url = '';
+    let headers: HeadersInit = {};
+    
+    if (config.oauthToken) {
+      // Use OAuth token if available
+      url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheets.spreadsheetId}/values/${sheetName}`;
+      headers = {
+        'Authorization': `Bearer ${config.oauthToken}`
+      };
+    } else {
+      // Fall back to API key
+      url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheets.spreadsheetId}/values/${sheetName}?key=${config.sheets.apiKey}`;
+    }
+    
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       throw new Error(`Erro ao buscar dados da planilha: ${response.statusText}`);
@@ -91,18 +121,27 @@ export const appendToSheet = async (sheetName: string, values: any[]): Promise<a
   }
 
   try {
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${config.sheets.spreadsheetId}/values/${sheetName}:append?valueInputOption=USER_ENTERED&key=${config.sheets.apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          values: [values],
-        }),
-      }
-    );
+    let url = '';
+    let headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (config.oauthToken) {
+      // Use OAuth token if available
+      url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheets.spreadsheetId}/values/${sheetName}:append?valueInputOption=USER_ENTERED`;
+      headers['Authorization'] = `Bearer ${config.oauthToken}`;
+    } else {
+      // Fall back to API key
+      url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheets.spreadsheetId}/values/${sheetName}:append?valueInputOption=USER_ENTERED&key=${config.sheets.apiKey}`;
+    }
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        values: [values],
+      }),
+    });
     
     if (!response.ok) {
       throw new Error(`Erro ao adicionar dados à planilha: ${response.statusText}`);
@@ -124,19 +163,29 @@ export const uploadImageToDrive = async (file: File): Promise<string> => {
   }
 
   try {
-    // This is a simplified approach - in a real implementation, you would use multipart upload
-    // and handle OAuth tokens properly. This is just a demonstration.
     const formData = new FormData();
     formData.append('file', file);
     formData.append('parents', config.drive.folderId);
     
-    const response = await fetch(
-      `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&key=${config.drive.apiKey}`,
-      {
-        method: 'POST',
-        body: formData,
-      }
-    );
+    let url = '';
+    let headers: HeadersInit = {};
+    
+    if (config.oauthToken) {
+      // Use OAuth token if available
+      url = `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
+      headers = {
+        'Authorization': `Bearer ${config.oauthToken}`
+      };
+    } else {
+      // Fall back to API key
+      url = `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&key=${config.drive.apiKey}`;
+    }
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
     
     if (!response.ok) {
       throw new Error(`Erro ao fazer upload da imagem: ${response.statusText}`);
@@ -153,5 +202,15 @@ export const uploadImageToDrive = async (file: File): Promise<string> => {
 // Helper to get image URL from Google Drive file ID
 export const getImageUrl = (fileId: string): string => {
   const config = getConfig();
-  return `https://drive.google.com/uc?export=view&id=${fileId}&key=${config.drive.apiKey}`;
+  if (config.oauthToken) {
+    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  } else {
+    return `https://drive.google.com/uc?export=view&id=${fileId}&key=${config.drive.apiKey}`;
+  }
+};
+
+// Add Supabase related functionality here when needed
+export const initializeSupabaseClient = () => {
+  // This would be implemented when Supabase integration is added
+  console.log("Supabase client would be initialized here");
 };

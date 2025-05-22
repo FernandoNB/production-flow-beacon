@@ -8,10 +8,14 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { User, UploadCloud } from "lucide-react";
+import { User, UploadCloud, Database } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function Config() {
   const { user, updateUserProfile } = useAuth();
+  const [databaseType, setDatabaseType] = useState(localStorage.getItem('db_type') || 'google_sheets');
+  
   const [sheetsConfig, setSheetsConfig] = useState({
     apiKey: localStorage.getItem('sheets_api_key') || 'AIzaSyBYJvozgf4-uFo56So2zgGjPC0UyforW9U',
     spreadsheetId: localStorage.getItem('sheets_spreadsheet_id') || '19ba5K3P1qjckTsdql0QFJjqTDZQtGwmakayUizkYpfY',
@@ -32,6 +36,12 @@ export default function Config() {
 
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(user?.picture || null);
+
+  const handleDatabaseTypeChange = (value: string) => {
+    setDatabaseType(value);
+    localStorage.setItem('db_type', value);
+    toast.success(`Base de dados alterada para ${value === 'supabase' ? 'Supabase' : 'Google Sheets'}`);
+  };
 
   const saveGoogleSheetsConfig = () => {
     if (!sheetsConfig.apiKey || !sheetsConfig.spreadsheetId) {
@@ -98,16 +108,88 @@ export default function Config() {
     }
   };
 
+  const handleGoogleSuccess = (credentialResponse: any) => {
+    console.log('Google OAuth success:', credentialResponse);
+    localStorage.setItem('google_oauth_token', credentialResponse.credential);
+    toast.success("Autenticação Google realizada com sucesso!");
+  };
+
+  const handleGoogleError = () => {
+    toast.error("Falha na autenticação com o Google");
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-8">
       <h1 className="text-2xl font-bold">Configurações</h1>
       
-      <Tabs defaultValue="profile">
+      <Tabs defaultValue="database">
         <TabsList className="mb-4">
+          <TabsTrigger value="database">Base de Dados</TabsTrigger>
           <TabsTrigger value="profile">Perfil do Usuário</TabsTrigger>
           <TabsTrigger value="google-sheets">Google Sheets</TabsTrigger>
           <TabsTrigger value="google-drive">Google Drive</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="database">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuração de Base de Dados</CardTitle>
+              <CardDescription>
+                Escolha qual base de dados utilizar para armazenar informações do sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup value={databaseType} onValueChange={handleDatabaseTypeChange} className="space-y-4">
+                <div className="flex items-center space-x-3 rounded-md border p-4">
+                  <RadioGroupItem value="google_sheets" id="google_sheets" />
+                  <Label htmlFor="google_sheets" className="flex flex-col gap-1">
+                    <span>Google Sheets</span>
+                    <span className="text-sm text-muted-foreground">
+                      Utiliza planilhas do Google como base de dados.
+                    </span>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3 rounded-md border p-4">
+                  <RadioGroupItem value="supabase" id="supabase" />
+                  <Label htmlFor="supabase" className="flex flex-col gap-1">
+                    <span>Supabase</span>
+                    <span className="text-sm text-muted-foreground">
+                      Utiliza o Supabase como base de dados PostgreSQL.
+                    </span>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Autenticação Google</CardTitle>
+              <CardDescription>
+                Configure a autenticação com o Google para acesso ao Google Sheets e Drive
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Ao autenticar com o Google, você permitirá que o sistema acesse seus arquivos do Google Sheets e Google Drive conforme necessário.
+              </p>
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  text="signin_with"
+                  shape="rectangular"
+                  theme="filled_blue"
+                />
+              </div>
+              {localStorage.getItem('google_oauth_token') && (
+                <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-md">
+                  <p className="text-sm font-medium">Conta Google conectada com sucesso!</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="profile">
           <div className="grid gap-6 md:grid-cols-2">
@@ -240,6 +322,12 @@ export default function Config() {
                   Exemplo: https://docs.google.com/spreadsheets/d/<span className="font-medium">ID_DA_PLANILHA</span>/edit
                 </p>
               </div>
+              <div className="pt-4">
+                <p className="text-sm text-muted-foreground mb-2">
+                  <strong>Nota:</strong> A autenticação OAuth com o Google é recomendada para acesso mais seguro. 
+                  Configure na aba "Base de Dados".
+                </p>
+              </div>
             </CardContent>
             <CardFooter>
               <Button onClick={saveGoogleSheetsConfig}>Salvar Configuração</Button>
@@ -277,6 +365,12 @@ export default function Config() {
                   Exemplo: https://drive.google.com/drive/folders/<span className="font-medium">ID_DA_PASTA</span>
                 </p>
               </div>
+              <div className="pt-4">
+                <p className="text-sm text-muted-foreground mb-2">
+                  <strong>Nota:</strong> A autenticação OAuth com o Google é recomendada para acesso mais seguro.
+                  Configure na aba "Base de Dados".
+                </p>
+              </div>
             </CardContent>
             <CardFooter>
               <Button onClick={saveGoogleDriveConfig}>Salvar Configuração</Button>
@@ -295,7 +389,7 @@ export default function Config() {
                 <li>Vá para a seção "API e Serviços" &gt; "Credenciais"</li>
                 <li>Clique em "Criar Credenciais" e selecione "Chave de API"</li>
                 <li>Ative as APIs do Google Sheets e Google Drive para o seu projeto</li>
-                <li>Compartilhe suas planilhas e pastas do Drive com a conta de serviço gerada</li>
+                <li>Para autenticação OAuth, configure a tela de consentimento e crie credenciais OAuth</li>
               </ol>
             </CardContent>
           </Card>
