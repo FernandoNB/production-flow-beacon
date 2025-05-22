@@ -29,7 +29,7 @@ import Config from "./pages/Config";
 const queryClient = new QueryClient();
 
 // Google OAuth client ID - replace with your actual client ID
-const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID";
+const GOOGLE_CLIENT_ID = "797892028045-jedvl6nj2o0j19pk82bh097ohihjrkqt.apps.googleusercontent.com";
 
 const App = () => (
   <React.StrictMode>
