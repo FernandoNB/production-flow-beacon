@@ -21,6 +21,7 @@ import Sales from "./pages/Sales";
 import Shipping from "./pages/Shipping";
 import ProductionOrders from "./pages/ProductionOrders";
 import Productivity from "./pages/Productivity";
+import Config from "./pages/Config";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/envios" element={<AppLayout><Shipping /></AppLayout>} />
             <Route path="/ordens-producao" element={<AppLayout><ProductionOrders /></AppLayout>} />
             <Route path="/produtividade" element={<AppLayout><Productivity /></AppLayout>} />
+            <Route path="/configuracao" element={<AppLayout><Config /></AppLayout>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
