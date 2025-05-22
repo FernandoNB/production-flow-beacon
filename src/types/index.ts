@@ -1,46 +1,55 @@
 
-// Product Types
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'user' | 'viewer';
+  picture?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
   stampTypeId: string;
-  imageUrl?: string;
+  // Add other fields as needed
 }
 
 export interface StampType {
   id: string;
   name: string;
+  // Add other fields as needed
 }
 
-// Failure Types
 export interface FailureType {
   id: string;
   name: string;
   category: 'estampa' | 'costura' | 'defeito';
+  // Add other fields as needed
 }
 
-export interface Failure {
-  id: string;
-  date: string;
-  productId: string;
-  failureTypeId: string;
-  quantity: number;
-}
-
-// Employee Types
 export interface Employee {
   id: string;
   name: string;
   role: string;
   email?: string;
+  // Add other fields as needed
 }
 
-// Daily Entries Types
 export interface PrintEntry {
   id: string;
   date: string;
   stampTypeId: string;
   quantity: number;
+  // Add other fields as needed
+}
+
+export interface FailureEntry {
+  id: string;
+  date: string;
+  productId: string;
+  failureTypeId: string;
+  quantity: number;
+  // Add other fields as needed
 }
 
 export interface SewingEntry {
@@ -49,50 +58,36 @@ export interface SewingEntry {
   productId: string;
   quantity: number;
   sewersCount: number;
+  // Add other fields as needed
 }
 
-// Sales Types
 export interface SaleEntry {
   id: string;
   date: string;
-  totalAmount: number;
-  products: SaleProduct[];
+  totalSales: number;
+  products: {
+    productId: string;
+    quantity: number;
+  }[];
+  // Add other fields as needed
 }
 
-export interface SaleProduct {
-  productId: string;
-  stampTypeId: string;
-  quantity: number;
-}
-
-// Shipping Types
 export interface ShippingEntry {
   id: string;
   date: string;
-  orderCount: number;
+  ordersShipped: number;
   orderDates: string[];
-  pendingOrdersCount: number;
-  delayedCustomOrdersCount: number;
-  observations?: string;
+  pendingOrders: number;
+  lateCustomOrders: number;
+  notes?: string;
+  // Add other fields as needed
 }
 
-// Production Order Types
 export interface ProductionOrder {
   id: string;
   orderId: string;
   status: 'em_andamento' | 'concluida' | 'atrasada';
   startDate: string;
-  expectedEndDate: string;
-  productId: string;
-  quantity: number;
-  observations?: string;
-}
-
-// Authentication Types
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  picture?: string;
-  role: 'admin' | 'user' | 'viewer';
+  endDate: string;
+  // Add other fields as needed
 }

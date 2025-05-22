@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { LogOut, Settings, User } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const Topbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -36,10 +37,12 @@ export const Topbar: React.FC = () => {
               <User className="mr-2 h-4 w-4" />
               <span>Perfil</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="flex items-center">
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Configurações</span>
-            </DropdownMenuItem>
+            <Link to="/configuracao">
+              <DropdownMenuItem className="flex items-center">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Configurações</span>
+              </DropdownMenuItem>
+            </Link>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="flex items-center text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
