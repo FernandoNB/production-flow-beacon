@@ -47,7 +47,7 @@ export default function FailureTypes() {
   const [editingFailureType, setEditingFailureType] = useState<FailureType | null>(null);
   const [newFailureType, setNewFailureType] = useState<{
     name: string;
-    category: "estampa" | "costura" | "defeito";
+    category: string;
   }>({
     name: "",
     category: "estampa",
@@ -65,7 +65,8 @@ export default function FailureTypes() {
 
       if (error) throw error;
 
-      setFailureTypes(data || []);
+      // Cast the data to FailureType[] to match our interface
+      setFailureTypes((data || []) as FailureType[]);
     } catch (err) {
       console.error("Error loading failure types:", err);
       setError(
@@ -257,7 +258,7 @@ export default function FailureTypes() {
                 <Label htmlFor="category">Categoria</Label>
                 <Select
                   value={newFailureType.category}
-                  onValueChange={(value: "estampa" | "costura" | "defeito") =>
+                  onValueChange={(value: string) =>
                     setNewFailureType({
                       ...newFailureType,
                       category: value,

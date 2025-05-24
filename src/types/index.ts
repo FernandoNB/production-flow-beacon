@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   name: string;
@@ -23,7 +22,9 @@ export interface StampType {
 export interface FailureType {
   id: string;
   name: string;
-  category: 'estampa' | 'costura' | 'defeito';
+  category: string; // Changed from union type to string to match Supabase
+  created_at?: string; // Added optional Supabase timestamp fields
+  updated_at?: string; // Added optional Supabase timestamp fields
   // Add other fields as needed
 }
 
