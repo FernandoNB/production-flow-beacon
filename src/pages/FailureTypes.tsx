@@ -34,7 +34,7 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { fetchSheetData, appendToSheet, SHEETS } from "@/services/googleServices";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FailureType } from "@/types";
 import { Edit, Trash2, Plus } from "lucide-react";
@@ -44,6 +44,7 @@ export default function FailureTypes() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingFailureType, setEditingFailureType] = useState<FailureType | null>(null);
   const [newFailureType, setNewFailureType] = useState<{
     name: string;
     category: "estampa" | "costura" | "defeito";
@@ -52,27 +53,28 @@ export default function FailureTypes() {
     category: "estampa",
   });
 
-  // Load data from Google Sheets
+  // Load data from Supabase
   const loadFailureTypes = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchSheetData(SHEETS.FAILURE_TYPES);
-      const formattedData = data.map((item: any, index: number) => ({
-        id: item.ID || `failure-type-${index}`,
-        name: item.Nome || "",
-        category: item.Categoria || "estampa",
-      }));
-      setFailureTypes(formattedData);
+      const { data, error } = await supabase
+        .from('failure_types')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      setFailureTypes(data || []);
     } catch (err) {
       console.error("Error loading failure types:", err);
       setError(
         err instanceof Error
           ? err.message
-          : "Erro ao carregar tipos de falha. Verifique sua conexão e configurações do Google Sheets."
+          : "Erro ao carregar tipos de falha. Verifique sua conexão."
       );
       toast.error(
-        "Erro ao carregar tipos de falha. Verifique sua conexão e configurações."
+        "Erro ao carregar tipos de falha. Verifique sua conexão."
       );
     } finally {
       setIsLoading(false);
@@ -91,34 +93,101 @@ export default function FailureTypes() {
 
     setIsLoading(true);
     try {
-      const newId = `ft-${Date.now()}`;
-      await appendToSheet(SHEETS.FAILURE_TYPES, [
-        newId,
-        newFailureType.name,
-        newFailureType.category,
-      ]);
-
-      // Update local state
-      setFailureTypes([
-        ...failureTypes,
-        {
-          id: newId,
+      const { error } = await supabase
+        .from('failure_types')
+        .insert([{
           name: newFailureType.name,
           category: newFailureType.category,
-        },
-      ]);
+        }]);
+
+      if (error) throw error;
 
       toast.success("Tipo de falha adicionado com sucesso!");
       setNewFailureType({ name: "", category: "estampa" });
       setDialogOpen(false);
+      loadFailureTypes();
     } catch (err) {
       console.error("Error adding failure type:", err);
       toast.error(
-        "Erro ao adicionar tipo de falha. Verifique sua conexão e configurações."
+        "Erro ao adicionar tipo de falha. Verifique sua conexão."
       );
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleUpdateFailureType = async () => {
+    if (!editingFailureType || !newFailureType.name) {
+      toast.error("Por favor, informe o nome do tipo de falha.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('failure_types')
+        .update({
+          name: newFailureType.name,
+          category: newFailureType.category,
+        })
+        .eq('id', editingFailureType.id);
+
+      if (error) throw error;
+
+      toast.success("Tipo de falha atualizado com sucesso!");
+      setNewFailureType({ name: "", category: "estampa" });
+      setEditingFailureType(null);
+      setDialogOpen(false);
+      loadFailureTypes();
+    } catch (err) {
+      console.error("Error updating failure type:", err);
+      toast.error(
+        "Erro ao atualizar tipo de falha. Verifique sua conexão."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteFailureType = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este tipo de falha?")) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('failure_types')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success("Tipo de falha excluído com sucesso!");
+      loadFailureTypes();
+    } catch (err) {
+      console.error("Error deleting failure type:", err);
+      toast.error(
+        "Erro ao excluir tipo de falha. Verifique sua conexão."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditClick = (failureType: FailureType) => {
+    setEditingFailureType(failureType);
+    setNewFailureType({
+      name: failureType.name,
+      category: failureType.category,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setEditingFailureType(null);
+    setNewFailureType({ name: "", category: "estampa" });
   };
 
   const getCategoryLabel = (category: string) => {
@@ -151,7 +220,7 @@ export default function FailureTypes() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Tipos de Falha</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2">
               <Plus className="h-4 w-4" /> Adicionar Tipo de Falha
@@ -159,9 +228,14 @@ export default function FailureTypes() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Novo Tipo de Falha</DialogTitle>
+              <DialogTitle>
+                {editingFailureType ? "Editar Tipo de Falha" : "Novo Tipo de Falha"}
+              </DialogTitle>
               <DialogDescription>
-                Preencha os campos abaixo para adicionar um novo tipo de falha.
+                {editingFailureType 
+                  ? "Edite os campos abaixo para atualizar o tipo de falha."
+                  : "Preencha os campos abaixo para adicionar um novo tipo de falha."
+                }
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -204,13 +278,16 @@ export default function FailureTypes() {
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setDialogOpen(false)}
+                onClick={handleDialogClose}
                 disabled={isLoading}
               >
                 Cancelar
               </Button>
-              <Button onClick={handleAddFailureType} disabled={isLoading}>
-                {isLoading ? "Processando..." : "Salvar"}
+              <Button 
+                onClick={editingFailureType ? handleUpdateFailureType : handleAddFailureType} 
+                disabled={isLoading}
+              >
+                {isLoading ? "Processando..." : (editingFailureType ? "Atualizar" : "Salvar")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -268,10 +345,20 @@ export default function FailureTypes() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button size="icon" variant="outline">
+                        <Button 
+                          size="icon" 
+                          variant="outline"
+                          onClick={() => handleEditClick(failureType)}
+                          disabled={isLoading}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="destructive">
+                        <Button 
+                          size="icon" 
+                          variant="destructive"
+                          onClick={() => handleDeleteFailureType(failureType.id)}
+                          disabled={isLoading}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
