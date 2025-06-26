@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string;
@@ -9,23 +10,26 @@ export interface User {
 export interface Product {
   id: string;
   name: string;
-  stampTypeId: string;
-  // Add other fields as needed
+  stamp_type_id?: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface StampType {
   id: string;
   name: string;
-  // Add other fields as needed
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface FailureType {
   id: string;
   name: string;
-  category: string; // Changed from union type to string to match Supabase
-  created_at?: string; // Added optional Supabase timestamp fields
-  updated_at?: string; // Added optional Supabase timestamp fields
-  // Add other fields as needed
+  category: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Employee {
@@ -33,62 +37,83 @@ export interface Employee {
   name: string;
   role: string;
   email?: string;
-  // Add other fields as needed
+  phone?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface PrintEntry {
   id: string;
   date: string;
-  stampTypeId: string;
+  stamp_type_id: string;
   quantity: number;
-  // Add other fields as needed
+  employee_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface FailureEntry {
   id: string;
   date: string;
-  productId: string;
-  failureTypeId: string;
+  product_id: string;
+  failure_type_id: string;
   quantity: number;
-  // Add other fields as needed
+  employee_id?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SewingEntry {
   id: string;
   date: string;
-  productId: string;
+  product_id: string;
   quantity: number;
-  sewersCount: number;
-  // Add other fields as needed
+  sewers_count: number;
+  employee_id?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SaleEntry {
   id: string;
   date: string;
-  totalSales: number;
-  products: {
-    productId: string;
-    quantity: number;
-  }[];
-  // Add other fields as needed
+  total_sales: number;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SaleItem {
+  id: string;
+  sale_entry_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price?: number;
+  created_at?: string;
 }
 
 export interface ShippingEntry {
   id: string;
   date: string;
-  ordersShipped: number;
-  orderDates: string[];
-  pendingOrders: number;
-  lateCustomOrders: number;
+  orders_shipped: number;
+  pending_orders: number;
+  late_custom_orders: number;
   notes?: string;
-  // Add other fields as needed
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ProductionOrder {
   id: string;
-  orderId: string;
+  order_id: string;
   status: 'em_andamento' | 'concluida' | 'atrasada';
-  startDate: string;
-  endDate: string;
-  // Add other fields as needed
+  start_date: string;
+  end_date?: string;
+  product_id?: string;
+  quantity: number;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
