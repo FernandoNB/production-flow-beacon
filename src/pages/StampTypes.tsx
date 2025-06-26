@@ -5,53 +5,55 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
-import { fetchSheetData, appendToSheet, SHEETS, isSheetsConfigured } from "@/services/googleServices";
-import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Edit, Trash2, Plus } from "lucide-react";
+import { StampType } from "@/types";
 
 // Define schema for our form
 const formSchema = z.object({
   name: z.string().min(2, {
     message: "O nome deve ter pelo menos 2 caracteres",
   }),
+  description: z.string().optional(),
 });
 
 export default function StampTypes() {
-  const [stampTypes, setStampTypes] = useState<any[]>([]);
+  const [stampTypes, setStampTypes] = useState<StampType[]>([]);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingStampType, setEditingStampType] = useState<StampType | null>(null);
 
   // Create form
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      description: "",
     },
   });
 
   // Load data on component mount
   useEffect(() => {
-    if (!isSheetsConfigured()) {
-      toast.error(
-        "Google Sheets não está configurado. Redirecionando para a página de configuração.", 
-        { duration: 5000 }
-      );
-      navigate("/configuracao");
-      return;
-    }
-    
     loadStampTypes();
-  }, [navigate]);
+  }, []);
 
   const loadStampTypes = async () => {
     try {
       setLoading(true);
-      const data = await fetchSheetData(SHEETS.STAMP_TYPES);
-      setStampTypes(data);
+      const { data, error } = await supabase
+        .from('stamp_types')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setStampTypes(data || []);
     } catch (error) {
+      console.error("Erro ao carregar tipos de estampa:", error);
       toast.error("Erro ao carregar tipos de estampa: " + (error as Error).message);
     } finally {
       setLoading(false);
@@ -61,28 +63,108 @@ export default function StampTypes() {
   // Form submission handler
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      await appendToSheet(SHEETS.STAMP_TYPES, [values.name]);
-      toast.success("Tipo de estampa adicionado com sucesso!");
+      setLoading(true);
+      
+      if (editingStampType) {
+        // Update existing stamp type
+        const { error } = await supabase
+          .from('stamp_types')
+          .update({
+            name: values.name,
+            description: values.description || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingStampType.id);
+
+        if (error) throw error;
+        toast.success("Tipo de estampa atualizado com sucesso!");
+      } else {
+        // Create new stamp type
+        const { error } = await supabase
+          .from('stamp_types')
+          .insert([{
+            name: values.name,
+            description: values.description || null,
+          }]);
+
+        if (error) throw error;
+        toast.success("Tipo de estampa adicionado com sucesso!");
+      }
+
       form.reset();
-      loadStampTypes(); // Reload data
+      setEditingStampType(null);
+      setDialogOpen(false);
+      loadStampTypes();
     } catch (error) {
-      toast.error("Erro ao adicionar tipo de estampa: " + (error as Error).message);
+      console.error("Erro ao salvar tipo de estampa:", error);
+      toast.error("Erro ao salvar tipo de estampa: " + (error as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleEdit = (stampType: StampType) => {
+    setEditingStampType(stampType);
+    form.setValue('name', stampType.name);
+    form.setValue('description', stampType.description || '');
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este tipo de estampa?")) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('stamp_types')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success("Tipo de estampa excluído com sucesso!");
+      loadStampTypes();
+    } catch (error) {
+      console.error("Erro ao excluir tipo de estampa:", error);
+      toast.error("Erro ao excluir tipo de estampa: " + (error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setEditingStampType(null);
+    form.reset();
+  };
+
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Tipos de Estampa</h1>
-        <Sheet>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">Tipos de Estampa</h1>
+          <p className="text-muted-foreground">
+            Gerencie os tipos de estampa utilizados na produção
+          </p>
+        </div>
+        <Sheet open={dialogOpen} onOpenChange={handleDialogClose}>
           <SheetTrigger asChild>
-            <Button>Adicionar Tipo</Button>
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Adicionar Tipo
+            </Button>
           </SheetTrigger>
           <SheetContent>
             <SheetHeader>
-              <SheetTitle>Adicionar Tipo de Estampa</SheetTitle>
+              <SheetTitle>
+                {editingStampType ? "Editar Tipo de Estampa" : "Adicionar Tipo de Estampa"}
+              </SheetTitle>
               <SheetDescription>
-                Adicione um novo tipo de estampa ao sistema.
+                {editingStampType 
+                  ? "Edite as informações do tipo de estampa."
+                  : "Adicione um novo tipo de estampa ao sistema."
+                }
               </SheetDescription>
             </SheetHeader>
             <div className="py-4">
@@ -101,7 +183,22 @@ export default function StampTypes() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit">Salvar</Button>
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Descrição (Opcional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Processo de impressão por transferência de calor" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? "Salvando..." : (editingStampType ? "Atualizar" : "Salvar")}
+                  </Button>
                 </form>
               </Form>
             </div>
@@ -109,33 +206,66 @@ export default function StampTypes() {
         </Sheet>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center my-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {stampTypes.length > 0 ? (
-            stampTypes.map((type, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <CardTitle>{type.Nome || type.name || "Sem nome"}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {/* Additional details could go here */}
-                </CardContent>
-              </Card>
-            ))
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Tipos de Estampa</CardTitle>
+          <CardDescription>
+            Todos os tipos de estampa cadastrados no sistema
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          ) : stampTypes.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead className="w-28">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stampTypes.map((stampType) => (
+                  <TableRow key={stampType.id}>
+                    <TableCell className="font-medium">{stampType.name}</TableCell>
+                    <TableCell>{stampType.description || "-"}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="icon" 
+                          variant="outline"
+                          onClick={() => handleEdit(stampType)}
+                          disabled={loading}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="destructive"
+                          onClick={() => handleDelete(stampType.id)}
+                          disabled={loading}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           ) : (
-            <div className="col-span-full text-center py-6">
-              <p className="text-gray-500">Nenhum tipo de estampa cadastrado.</p>
-              <Button variant="outline" className="mt-2" onClick={loadStampTypes}>
-                Recarregar Dados
-              </Button>
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Nenhum tipo de estampa cadastrado.</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Clique em "Adicionar Tipo" para começar.
+              </p>
             </div>
           )}
-        </div>
-      )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
