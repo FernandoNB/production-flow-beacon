@@ -12,7 +12,15 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Edit, Trash2, Plus } from "lucide-react";
-import { StampType } from "@/types";
+
+// Define the StampType interface based on our database structure
+interface StampType {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 // Define schema for our form
 const formSchema = z.object({
